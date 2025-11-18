@@ -1,6 +1,6 @@
 # mythpedia/forms.py
 from django import forms
-from .models import Suggestion, Mythology, Character
+from .models import Suggestion, Mythology, Character, MythStory, Comment, Rating
 
 class SuggestionForm(forms.ModelForm):
     # Définition des champs pour la personnalisation
@@ -77,3 +77,68 @@ class SuggestionForm(forms.ModelForm):
             # Assurer que le widget est TextInput si jamais il avait été changé
             if not isinstance(self.fields['name_or_email'].widget, forms.TextInput):
                 self.fields['name_or_email'].widget = forms.TextInput(attrs=self.fields['name_or_email'].widget.attrs)
+
+# --- NOUVEAU FORMULAIRE DE RECHERCHE AVANCÉE ---
+class AdvancedSearchForm(forms.Form):
+    SEARCH_CHOICES = [
+        ('all', 'Tout'),
+        ('mythology', 'Mythologies'),
+        ('character', 'Personnages'),
+        ('story', 'Histoires/Mythes'),
+    ]
+    
+    query = forms.CharField(
+        label="Rechercher",
+        widget=forms.TextInput(attrs={
+            'placeholder': 'Rechercher des mythologies, personnages ou histoires...',
+            'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+            'autocomplete': 'off'
+        })
+    )
+    
+    search_type = forms.ChoiceField(
+        choices=SEARCH_CHOICES,
+        initial='all',
+        label="Type de recherche",
+        widget=forms.Select(attrs={
+            'class': 'px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+        })
+    )
+
+# --- FORMULAIRES POUR LES COMMENTAIRES ET NOTATIONS ---
+class CommentForm(forms.ModelForm):
+    class Meta:
+        model = Comment
+        fields = ['text']
+        widgets = {
+            'text': forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder': 'Partagez vos pensées sur ce contenu...',
+                'class': 'w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            })
+        }
+        labels = {
+            'text': 'Votre commentaire'
+        }
+
+class RatingForm(forms.ModelForm):
+    class Meta:
+        model = Rating
+        fields = ['score']
+        widgets = {
+            'score': forms.Select(choices=[(i, f'{i} étoile{"s" if i > 1 else ""}') for i in range(1, 6)], attrs={
+                'class': 'px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+            })
+        }
+        labels = {
+            'score': 'Votre note'
+        }
+    
+    mythology_filter = forms.ModelChoiceField(
+        queryset=Mythology.objects.all().order_by('title'),
+        required=False,
+        label="Filtrer par mythologie",
+        widget=forms.Select(attrs={
+            'class': 'px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+        })
+    )

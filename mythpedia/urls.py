@@ -8,6 +8,7 @@ urlpatterns = [
     # La racine de '/mythpedia/' sera la liste des mythologies.
     path('', views.mythology_list, name='mythology_list'),
     path('mythology/<slug:mythology_slug>/', views.mythology_detail, name='mythology_detail'),
+    path('mythology/<slug:mythology_slug>/story/<slug:story_slug>/', views.mythstory_detail, name='mythstory_detail'),
     path('mythology/<slug:mythology_slug>/character/<slug:character_slug>/', views.character_detail, name='character_detail'),
 
     # URLs pour la gestion des favoris de Mythologies
@@ -24,6 +25,13 @@ urlpatterns = [
 
     # URL pour la page de suggestions
     path('suggest/', views.submit_suggestion, name='submit_suggestion'),
+    
+    # URL pour la recherche avancée
+    path('search/', views.advanced_search, name='advanced_search'),
+    
+    # URLs pour les commentaires et notations
+    path('comment/<slug:content_type>/<int:object_id>/', views.add_comment, name='add_comment'),
+    path('rate/<slug:content_type>/<int:object_id>/', views.add_rating, name='add_rating'),
 
     path('mythology/<slug:mythology_slug>/', views.mythology_detail, name='mythology_detail'),
 

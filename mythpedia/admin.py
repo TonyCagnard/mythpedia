@@ -1,6 +1,6 @@
 from django.contrib import admin
-# MODIFICATION ICI : Ajouter Suggestion à la liste des imports
-from .models import Mythology, Character, FavoriteMythology, FavoriteCharacter, Suggestion
+# MODIFICATION ICI : Ajouter Suggestion et MythStory à la liste des imports
+from .models import Mythology, Character, FavoriteMythology, FavoriteCharacter, Suggestion, MythStory
 
 @admin.register(Mythology)
 class MythologyAdmin(admin.ModelAdmin):
@@ -76,3 +76,40 @@ class SuggestionAdmin(admin.ModelAdmin):
     @admin.display(description='Date de Soumission', ordering='submitted_on')
     def submitted_on_formatted(self, obj):
         return obj.submitted_on.strftime("%d %b %Y, %H:%M")
+
+# --- NOUVELLE CLASSE ADMIN POUR LES HISTOIRES/MYTHES ---
+@admin.register(MythStory)
+class MythStoryAdmin(admin.ModelAdmin):
+    list_display = ('title', 'mythology', 'get_themes_display', 'get_characters_count', 'slug')
+    list_filter = ('mythology', 'characters')
+    search_fields = ('title', 'summary', 'full_text', 'mythology__title', 'characters__name')
+    prepopulated_fields = {'slug': ('title',)}
+    filter_horizontal = ('characters',)
+    list_select_related = ('mythology',)
+    list_per_page = 20
+    
+    fieldsets = (
+        ("Informations Principales", {
+            'fields': ('mythology', 'title', 'slug')
+        }),
+        ("Contenu de l'Histoire", {
+            'fields': ('summary', 'full_text', 'image_url')
+        }),
+        ("Personnages et Thèmes", {
+            'fields': ('characters', 'themes')
+        }),
+    )
+    
+    @admin.display(description='Thèmes')
+    def get_themes_display(self, obj):
+        if obj.themes:
+            # Affiche les 3 premiers thèmes si trop nombreux
+            themes_list = [t.strip() for t in obj.themes.split(',')]
+            if len(themes_list) > 3:
+                return ', '.join(themes_list[:3]) + '...'
+            return ', '.join(themes_list)
+        return "Aucun"
+    
+    @admin.display(description='Nb. Personnages')
+    def get_characters_count(self, obj):
+        return obj.characters.count()

@@ -1,5 +1,6 @@
 {% extends "mythpedia/base.html" %}
 {% load static %}
+{% load mythpedia_extras %} {# Charger nos filtres personnalisés #}
 
 {% block title_tag_content %}{{ story.title }} - {{ mythology.title }} - MythPedia{% endblock %}
 {% block main_page_heading %}{{ story.title }}{% endblock %}
@@ -68,7 +69,7 @@
             {# Note: 'split_by_comma_if_needed' n'est pas un filtre Django standard. #}
             {# Vous devrez créer un filtre personnalisé ou gérer cela dans la vue si vous voulez splitter. #}
             {# Pour l'instant, affichons simplement le champ themes tel quel. #}
-            {% for theme_item in story.themes|default:""|stringformat:"s"|split:"," %} {# Tentative simple de split, mais un filtre perso est mieux #}
+            {% for theme_item in story.themes|default:""|split:"," %}
                 {% if theme_item|strip %}
                 <span class="inline-block bg-gray-200 text-gray-700 px-2 py-1 rounded-full text-xs mr-1 mb-1">{{ theme_item|strip }}</span>
                 {% endif %}
@@ -80,6 +81,12 @@
     </div>
     {% endif %}
 
+
+    {# Inclure la section des commentaires et notations #}
+    {% include "mythpedia/_comments_section.html" %}
+
+    {# Boutons de partage social #}
+    {% include "mythpedia/_share_buttons.html" with share_title=story.title share_text="Découvrez l'histoire "|add:story.title|add:", un récit fascinant de la mythologie "|add:story.mythology.title|add:" sur MythPedia !" %}
 
     <div class="mt-10">
         {# CORRIGÉ : Utilisation du namespace et du bon argument pour le slug de la mythologie #}

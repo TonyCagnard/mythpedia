@@ -1,5 +1,6 @@
 {% extends "mythpedia/base.html" %}
 {% load static %} {# Assurez-vous que staticfiles est configuré si vous l'utilisez pour des CSS/JS locaux #}
+{% load mythpedia_extras %} {# Charger nos filtres personnalisés #}
 
 {# Le titre de l'onglet du navigateur utilisera directement mythology.title #}
 {% block title_tag_content %}{{ mythology.title }} - MythPedia{% endblock %}
@@ -9,13 +10,15 @@
 
 {% block content %}
     {# Section de la bannière #}
-    <div class="mb-8 p-6 bg-gradient-to-r {{ mythology.color_from }} {{ mythology.color_to }} text-white rounded-lg shadow-lg">
-        <div class="flex flex-col sm:flex-row items-center text-center sm:text-left">
-            <i class="fas {{ mythology.icon_class }} text-5xl sm:text-6xl mb-4 sm:mb-0 sm:mr-6"></i>
-            <div>
-                <h2 class="text-3xl md:text-4xl font-bold">{{ mythology.title }}</h2>
+    <div class="mb-6 p-8 bg-gradient-to-r {{ mythology.color_from }} {{ mythology.color_to }} text-white rounded-lg shadow-lg">
+        <div class="flex flex-col lg:flex-row items-center text-center lg:text-left">
+            <div class="flex-shrink-0 mr-0 lg:mr-6 mb-4 lg:mb-0">
+                <i class="fas {{ mythology.icon_class }} text-4xl lg:text-5xl"></i>
+            </div>
+            <div class="flex-grow">
+                <h1 class="text-2xl lg:text-3xl xl:text-4xl font-bold mb-2">{{ mythology.title }}</h1>
                 {% if mythology.card_summary %}
-                    <p class="text-lg mt-1 opacity-90">{{ mythology.card_summary }}</p>
+                    <p class="text-base lg:text-lg opacity-90">{{ mythology.card_summary }}</p>
                 {% endif %}
             </div>
         </div>
@@ -47,49 +50,118 @@
     </div>
 
     {# Section pour l'histoire/description principale de la mythologie #}
-    <div class="bg-white p-6 md:p-8 rounded-lg shadow-md mb-10 prose max-w-none">
-        <h3 class="text-2xl font-semibold text-blue-700 mb-4 border-b pb-2">L'Histoire de {{ mythology.title }}</h3>
-        <div class="text-gray-700 leading-relaxed">
+    <div class="bg-white p-6 rounded-lg shadow-md mb-8 prose max-w-none">
+        <h2 class="text-2xl font-semibold text-blue-700 mb-3 border-b pb-2">L'Histoire de {{ mythology.title }}</h2>
+        <div class="text-gray-700 leading-relaxed text-base">
             {{ mythology.description|linebreaksbr }}
         </div>
     </div>
 
-    {# Section des Personnages Clés (CORRIGÉE) #}
+    {# Section des Personnages Clés (AMÉLIORÉE) #}
     {% if characters %}
-        <div class="mb-10">
-            <h3 class="text-2xl font-semibold text-blue-700 mb-6 text-center border-t pt-6">Personnages Clés de {{ mythology.title }}</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for character in characters %}
-                    <div class="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow flex flex-col items-center text-center">
-                        {% if character.image_url %}
-                            <img src="{{ character.image_url }}" alt="{{ character.name }}" class="w-32 h-32 object-cover rounded-full mb-4 border-4 border-gray-200">
-                        {% else %}
-                            <div class="w-32 h-32 bg-gray-200 rounded-full mb-4 flex items-center justify-center text-gray-400 border-4 border-gray-200">
-                                <i class="fas fa-user text-5xl"></i>
-                            </div>
-                        {% endif %}
-                        <h4 class="text-xl font-semibold text-blue-800 mb-1">
-                            <a href="{% url 'mythpedia:character_detail' mythology_slug=mythology.slug character_slug=character.slug %}" class="hover:underline">
-                                {{ character.name }}
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-blue-700 mb-6 text-center border-t pt-6">Personnages Clés de {{ mythology.title }}</h2>
+            <div class="overflow-x-auto pb-4">
+                <div class="flex space-x-4" style="min-width: max-content;">
+                    {% for character in characters %}
+                        <div class="bg-white p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow flex flex-col items-center text-center flex-shrink-0 w-64">
+                            {% if character.image_url %}
+                                <img src="{{ character.image_url }}" alt="{{ character.name }}" class="w-32 h-32 object-cover rounded-full mb-4 border-2 border-gray-200">
+                            {% else %}
+                                <div class="w-32 h-32 bg-gray-200 rounded-full mb-4 flex items-center justify-center text-gray-400 border-2 border-gray-200">
+                                    <i class="fas fa-user text-4xl"></i>
+                                </div>
+                            {% endif %}
+                            <h4 class="text-xl font-semibold text-blue-800 mb-2">
+                                <a href="{% url 'mythpedia:character_detail' mythology_slug=mythology.slug character_slug=character.slug %}" class="hover:underline">
+                                    {{ character.name }}
+                                </a>
+                            </h4>
+                            {% if character.role %}
+                                <p class="text-sm text-blue-600 font-medium mb-2">{{ character.role }}</p>
+                            {% endif %}
+                            <p class="text-gray-600 text-sm flex-grow">{{ character.description|truncatewords:15 }}</p>
+                            <a href="{% url 'mythpedia:character_detail' mythology_slug=mythology.slug character_slug=character.slug %}" class="mt-3 text-blue-500 hover:text-blue-700 text-sm font-medium">
+                                En savoir plus →
                             </a>
-                        </h4>
-                        {% if character.role %}
-                            <p class="text-sm text-blue-600 font-medium mb-2">{{ character.role }}</p>
-                        {% endif %}
-                        <p class="text-gray-600 text-sm flex-grow">{{ character.description|truncatewords:20 }}</p>
-                        <a href="{% url 'mythpedia:character_detail' mythology_slug=mythology.slug character_slug=character.slug %}" class="mt-3 text-blue-500 hover:text-blue-700 text-sm font-medium">
-                            En savoir plus →
-                        </a>
-                    </div>
-                {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
             </div>
         </div>
     {% else %}
         <p class="text-gray-700 mb-8 text-center">Aucun personnage n'est encore enregistré pour cette mythologie.</p>
     {% endif %}
 
-    {# Lien de retour (CORRIGÉ) #}
-    <div class="mt-10 text-center">
-        <a href="{% url 'mythpedia:mythology_list' %}" class="text-blue-600 hover:underline font-medium">← Retour à toutes les mythologies</a>
+    {# Section des Histoires/Mythes (AMÉLIORÉE ET CENTRÉE) #}
+    {% if stories %}
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-blue-700 mb-6 text-center border-t pt-6">Histoires et Mythes de {{ mythology.title }}</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for story in stories %}
+                    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden group">
+                        {# Image ou icône en haut de la carte #}
+                        <div class="h-40 overflow-hidden bg-gradient-to-br {{ mythology.color_from|default:"from-blue-500" }} {{ mythology.color_to|default:"to-purple-600" }}">
+                            {% if story.image_url %}
+                                <img src="{{ story.image_url }}" alt="{{ story.title }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            {% else %}
+                                <div class="w-full h-full flex items-center justify-center text-white">
+                                    <i class="fas {{ mythology.icon_class|default:"fa-book" }} text-4xl"></i>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        {# Contenu de la carte centré #}
+                        <div class="p-5 text-center">
+                            <h4 class="text-xl font-semibold text-blue-800 mb-3 group-hover:text-blue-600 transition-colors">
+                                <a href="{% url 'mythpedia:mythstory_detail' mythology_slug=mythology.slug story_slug=story.slug %}" class="hover:underline">
+                                    {{ story.title }}
+                                </a>
+                            </h4>
+                            
+                            {% if story.summary %}
+                                <p class="text-gray-600 text-sm mb-3 leading-relaxed">{{ story.summary|truncatewords:15 }}</p>
+                            {% endif %}
+                            
+                            {% if story.themes %}
+                                <div class="flex flex-wrap justify-center gap-1 mb-3">
+                                    {% for theme in story.themes|split:"," %}
+                                        {% if theme|strip %}
+                                            <span class="inline-block bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-full">{{ theme|strip }}</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            
+                            <div class="flex justify-center">
+                                <a href="{% url 'mythpedia:mythstory_detail' mythology_slug=mythology.slug story_slug=story.slug %}" 
+                                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors group">
+                                    <span>Lire l'histoire</span>
+                                    <i class="fas fa-arrow-right ml-2 transform group-hover:translate-x-1 transition-transform"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="text-center py-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
+                <i class="fas fa-book-open text-2xl text-gray-400"></i>
+            </div>
+            <p class="text-gray-600">Aucune histoire n'est encore enregistrée pour cette mythologie.</p>
+        </div>
+    {% endif %}
+
+    {# Inclure la section des commentaires et notations #}
+    {% include "mythpedia/_comments_section.html" %}
+    
+    {# Boutons de partage social #}
+    {% include "mythpedia/_share_buttons.html" with share_title=mythology.title share_text="Découvrez la mythologie "|add:mythology.title|add:" sur MythPedia !" %}
+    
+    {# Lien de retour (AMÉLIORÉ) #}
+    <div class="mt-8 text-center">
+        <a href="{% url 'mythpedia:mythology_list' %}" class="text-blue-600 hover:underline font-medium text-lg">← Retour à toutes les mythologies</a>
     </div>
 {% endblock %}

@@ -1,0 +1,61 @@
+{% load mythpedia_extras %}
+
+<div class="mt-6 p-4 bg-gray-50 rounded-lg">
+    <h4 class="text-lg font-semibold text-gray-800 mb-3">Partager ce contenu</h4>
+    <div class="flex flex-wrap gap-2">
+        {# Partager sur Facebook #}
+        <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.build_absolute_uri }}" 
+           target="_blank" 
+           class="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium">
+            <i class="fab fa-facebook-f mr-2"></i>Facebook
+        </a>
+        
+        {# Partager sur Twitter/X #}
+        <a href="https://twitter.com/intent/tweet?text={{ share_text|default:"Découvrez ce contenu fascinant sur MythPedia !" }}&url={{ request.build_absolute_uri }}" 
+           target="_blank" 
+           class="px-3 py-2 bg-sky-500 text-white rounded-md hover:bg-sky-600 transition-colors text-sm font-medium">
+            <i class="fab fa-x-twitter mr-2"></i>Twitter
+        </a>
+        
+        {# Partager sur LinkedIn #}
+        <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ request.build_absolute_uri }}" 
+           target="_blank" 
+           class="px-3 py-2 bg-blue-700 text-white rounded-md hover:bg-blue-800 transition-colors text-sm font-medium">
+            <i class="fab fa-linkedin-in mr-2"></i>LinkedIn
+        </a>
+        
+        {# Partager par email #}
+        <a href="mailto:?subject={{ share_title|default:"Contenu intéressant sur MythPedia" }}&body={{ share_text|default:"Je voulais partager ce contenu avec vous : " }}{{ request.build_absolute_uri }}" 
+           class="px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium">
+            <i class="fas fa-envelope mr-2"></i>Email
+        </a>
+        
+        {# Copier le lien #}
+        <button onclick="copyToClipboard('{{ request.build_absolute_uri }}')" 
+                class="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium">
+            <i class="fas fa-link mr-2"></i>Copier le Lien
+        </button>
+    </div>
+    
+    {# Message de confirmation pour la copie du lien #}
+    <div id="copyConfirmation" class="hidden mt-2 p-2 bg-green-100 text-green-700 rounded-md text-sm">
+        <i class="fas fa-check-circle mr-2"></i>Lien copié dans le presse-papiers !
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Afficher le message de confirmation
+        const confirmation = document.getElementById('copyConfirmation');
+        confirmation.classList.remove('hidden');
+        
+        // Cacher le message après 3 secondes
+        setTimeout(function() {
+            confirmation.classList.add('hidden');
+        }, 3000);
+    }).catch(function(err) {
+        console.error('Erreur lors de la copie du texte: ', err);
+    });
+}
+</script>

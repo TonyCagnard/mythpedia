@@ -3,9 +3,10 @@ from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from .models import Mythology, Character, FavoriteMythology, FavoriteCharacter, Suggestion 
-# from .models import MythStory # Décommentez si vous utilisez MythStory
-from .forms import SuggestionForm
+from django.db import models
+from django.contrib.contenttypes.models import ContentType
+from .models import Mythology, Character, FavoriteMythology, FavoriteCharacter, Suggestion, MythStory, Comment, Rating
+from .forms import SuggestionForm, AdvancedSearchForm, CommentForm, RatingForm
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.conf import settings
 from django.core.mail import send_mail # <<< AJOUTÉ pour l'envoi d'email
@@ -13,8 +14,9 @@ from django.urls import reverse # <<< AJOUTÉ pour construire des URLs absolues 
 
 @login_required
 def mythology_list(request):
-    all_mythologies = Mythology.objects.all().order_by('title')
-    paginator = Paginator(all_mythologies, 8) 
+    # Optimisation : précharger les données associées pour éviter les requêtes N+1
+    all_mythologies = Mythology.objects.all().order_by('title').prefetch_related('characters', 'stories')
+    paginator = Paginator(all_mythologies, 6)  # 6 mythologies par page
     page_number = request.GET.get('page')
     try:
         mythologies_page = paginator.page(page_number)
@@ -22,6 +24,7 @@ def mythology_list(request):
         mythologies_page = paginator.page(1)
     except EmptyPage:
         mythologies_page = paginator.page(paginator.num_pages)
+    
     context = {
         'mythologies_page': mythologies_page,
         'page_title': 'Liste des Mythologies'
@@ -32,7 +35,35 @@ def mythology_list(request):
 def mythology_detail(request, mythology_slug):
     mythology = get_object_or_404(Mythology, slug=mythology_slug)
     characters = Character.objects.filter(mythology=mythology).order_by('name')
-    # stories = mythology.stories.all().order_by('title') # Si vous utilisez le related_name 'stories' et le modèle MythStory
+    stories = mythology.stories.all().order_by('title') # Maintenant que MythStory est défini
+    
+    # Récupérer les commentaires pour cette mythologie
+    from django.contrib.contenttypes.models import ContentType
+    mythology_ct = ContentType.objects.get_for_model(Mythology)
+    comments = Comment.objects.filter(
+        content_type='MYTHOLOGY',
+        object_id=mythology.id,
+        is_approved=True
+    ).select_related('user').order_by('-created_at')
+    
+    # Récupérer les notations pour cette mythologie
+    ratings = Rating.objects.filter(
+        content_type='MYTHOLOGY',
+        object_id=mythology.id
+    ).select_related('user')
+    
+    # Calculer la note moyenne
+    average_rating = 0
+    total_ratings = ratings.count()
+    if total_ratings > 0:
+        average_rating = sum(r.score for r in ratings) / total_ratings
+    
+    # Note de l'utilisateur actuel
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = ratings.filter(user=request.user).first()
+        if user_rating_obj:
+            user_rating = user_rating_obj.score
     
     is_favorite = False
     if request.user.is_authenticated:
@@ -41,9 +72,17 @@ def mythology_detail(request, mythology_slug):
     context = {
         'mythology': mythology,
         'characters': characters,
-        # 'stories': stories, # Décommentez si MythStory est actif
+        'stories': stories, # Maintenant actif avec MythStory
+        'comments': comments,
+        'average_rating': average_rating,
+        'total_ratings': total_ratings,
+        'user_rating': user_rating,
+        'content_type': 'mythology',
+        'object_id': mythology.id,
+        'comment_form': CommentForm(),
+        'rating_form': RatingForm(),
         'is_favorite': is_favorite,
-        'page_title': mythology.title 
+        'page_title': mythology.title
     }
     return render(request, 'mythpedia/mythology_detail.html', context)
 
@@ -57,12 +96,49 @@ def character_detail(request, mythology_slug, character_slug):
     is_favorite_character = False
     if request.user.is_authenticated:
         is_favorite_character = FavoriteCharacter.objects.filter(user=request.user, character=character).exists()
-    # stories_featuring_character = character.featured_in_stories.all().order_by('title') # Si related_name 'featured_in_stories' et MythStory actif
+    stories_featuring_character = character.featured_in_stories.all().order_by('title') # Maintenant actif avec MythStory
+    
+    # Récupérer les commentaires pour ce personnage
+    from django.contrib.contenttypes.models import ContentType
+    character_ct = ContentType.objects.get_for_model(Character)
+    comments = Comment.objects.filter(
+        content_type='CHARACTER',
+        object_id=character.id,
+        is_approved=True
+    ).select_related('user').order_by('-created_at')
+    
+    # Récupérer les notations pour ce personnage
+    ratings = Rating.objects.filter(
+        content_type='CHARACTER',
+        object_id=character.id
+    ).select_related('user')
+    
+    # Calculer la note moyenne
+    average_rating = 0
+    total_ratings = ratings.count()
+    if total_ratings > 0:
+        average_rating = sum(r.score for r in ratings) / total_ratings
+    
+    # Note de l'utilisateur actuel
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = ratings.filter(user=request.user).first()
+        if user_rating_obj:
+            user_rating = user_rating_obj.score
+    
     context = {
         'character': character,
         'mythology': character.mythology,
         'is_favorite_character': is_favorite_character,
-        # 'stories_featuring_character': stories_featuring_character, # Décommentez si MythStory actif
+        'stories_featuring_character': stories_featuring_character, # Maintenant actif
+        'comments': comments,
+        'average_rating': average_rating,
+        'total_ratings': total_ratings,
+        'user_rating': user_rating,
+        'content_type': 'character',
+        'object_id': character.id,
+        'comment_form': CommentForm(),
+        'rating_form': RatingForm(),
         'page_title': character.name
     }
     return render(request, 'mythpedia/character_detail.html', context)
@@ -243,3 +319,218 @@ def logout_request(request):
     logout(request)
     messages.info(request, "Vous avez été déconnecté avec succès.")
     return redirect(settings.LOGOUT_REDIRECT_URL)
+
+# --- VUES POUR LES HISTOIRES/MYTHES ---
+@login_required
+def mythstory_detail(request, mythology_slug, story_slug):
+    story = get_object_or_404(
+        MythStory.objects.select_related('mythology').prefetch_related('characters'),
+        slug=story_slug,
+        mythology__slug=mythology_slug
+    )
+    key_characters = story.characters.all().order_by('name')
+    
+    # Récupérer les commentaires pour cette histoire
+    from django.contrib.contenttypes.models import ContentType
+    story_ct = ContentType.objects.get_for_model(MythStory)
+    comments = Comment.objects.filter(
+        content_type='STORY',
+        object_id=story.id,
+        is_approved=True
+    ).select_related('user').order_by('-created_at')
+    
+    # Récupérer les notations pour cette histoire
+    ratings = Rating.objects.filter(
+        content_type='STORY',
+        object_id=story.id
+    ).select_related('user')
+    
+    # Calculer la note moyenne
+    average_rating = 0
+    total_ratings = ratings.count()
+    if total_ratings > 0:
+        average_rating = sum(r.score for r in ratings) / total_ratings
+    
+    # Note de l'utilisateur actuel
+    user_rating = None
+    if request.user.is_authenticated:
+        user_rating_obj = ratings.filter(user=request.user).first()
+        if user_rating_obj:
+            user_rating = user_rating_obj.score
+    
+    context = {
+        'story': story,
+        'mythology': story.mythology,
+        'key_characters': key_characters,
+        'comments': comments,
+        'average_rating': average_rating,
+        'total_ratings': total_ratings,
+        'user_rating': user_rating,
+        'content_type': 'story',
+        'object_id': story.id,
+        'comment_form': CommentForm(),
+        'rating_form': RatingForm(),
+        'page_title': story.title
+    }
+    return render(request, 'mythpedia/mythstory_detail.html', context)
+
+# --- VUE POUR LA RECHERCHE AVANCÉE ---
+@login_required
+def advanced_search(request):
+    form = AdvancedSearchForm(request.GET or None)
+    results = {
+        'mythologies': [],
+        'characters': [],
+        'stories': []
+    }
+    query = None
+    
+    if form.is_valid():
+        query = form.cleaned_data.get('query')
+        search_type = form.cleaned_data.get('search_type', 'all')
+        mythology_filter = form.cleaned_data.get('mythology_filter')
+        
+        # Si une requête est fournie
+        if query:
+            query_lower = query.lower()
+            
+            # Recherche dans les mythologies
+            if search_type in ['all', 'mythology']:
+                mythologies_qs = Mythology.objects.all()
+                if mythology_filter:
+                    mythologies_qs = mythologies_qs.filter(id=mythology_filter.id)
+                results['mythologies'] = mythologies_qs.filter(
+                    models.Q(title__icontains=query) |
+                    models.Q(description__icontains=query) |
+                    models.Q(card_summary__icontains=query)
+                ).distinct()
+            
+            # Recherche dans les personnages
+            if search_type in ['all', 'character']:
+                characters_qs = Character.objects.select_related('mythology')
+                if mythology_filter:
+                    characters_qs = characters_qs.filter(mythology=mythology_filter)
+                results['characters'] = characters_qs.filter(
+                    models.Q(name__icontains=query) |
+                    models.Q(role__icontains=query) |
+                    models.Q(description__icontains=query)
+                ).distinct()
+            
+            # Recherche dans les histoires
+            if search_type in ['all', 'story']:
+                stories_qs = MythStory.objects.select_related('mythology').prefetch_related('characters')
+                if mythology_filter:
+                    stories_qs = stories_qs.filter(mythology=mythology_filter)
+                results['stories'] = stories_qs.filter(
+                    models.Q(title__icontains=query) |
+                    models.Q(summary__icontains=query) |
+                    models.Q(full_text__icontains=query) |
+                    models.Q(themes__icontains=query) |
+                    models.Q(characters__name__icontains=query)
+                ).distinct()
+    
+    context = {
+        'form': form,
+        'results': results,
+        'query': query,
+        'page_title': 'Recherche Avancée'
+    }
+    return render(request, 'mythpedia/search_results.html', context)
+
+# --- VUES POUR LES COMMENTAIRES ET NOTATIONS ---
+@login_required
+def add_comment(request, content_type, object_id):
+    if request.method == 'POST':
+        form = CommentForm(request.POST)
+        if form.is_valid():
+            comment = form.save(commit=False)
+            comment.user = request.user
+            comment.content_type = content_type.upper()
+            comment.object_id = object_id
+            
+            # Récupérer le ContentType approprié
+            if content_type == 'mythology':
+                ct = ContentType.objects.get_for_model(Mythology)
+            elif content_type == 'character':
+                ct = ContentType.objects.get_for_model(Character)
+            elif content_type == 'story':
+                ct = ContentType.objects.get_for_model(MythStory)
+            else:
+                messages.error(request, "Type de contenu invalide.")
+                return redirect('mythpedia:mythology_list')
+            
+            comment.content_type_field = ct
+            comment.save()
+            messages.success(request, "Votre commentaire a été ajouté avec succès.")
+            
+            # Rediriger vers la page appropriée
+            if content_type == 'mythology':
+                mythology = Mythology.objects.get(pk=object_id)
+                return redirect('mythpedia:mythology_detail', mythology_slug=mythology.slug)
+            elif content_type == 'character':
+                character = Character.objects.get(pk=object_id)
+                return redirect('mythpedia:character_detail', mythology_slug=character.mythology.slug, character_slug=character.slug)
+            elif content_type == 'story':
+                story = MythStory.objects.get(pk=object_id)
+                return redirect('mythpedia:mythstory_detail', mythology_slug=story.mythology.slug, story_slug=story.slug)
+    else:
+        form = CommentForm()
+    
+    # En cas d'erreur ou de GET, rediriger vers la liste des mythologies
+    return redirect('mythpedia:mythology_list')
+
+@login_required
+def add_rating(request, content_type, object_id):
+    if request.method == 'POST':
+        form = RatingForm(request.POST)
+        if form.is_valid():
+            rating = form.save(commit=False)
+            rating.user = request.user
+            rating.content_type = content_type.upper()
+            rating.object_id = object_id
+            
+            # Récupérer le ContentType approprié
+            if content_type == 'mythology':
+                ct = ContentType.objects.get_for_model(Mythology)
+            elif content_type == 'character':
+                ct = ContentType.objects.get_for_model(Character)
+            elif content_type == 'story':
+                ct = ContentType.objects.get_for_model(MythStory)
+            else:
+                messages.error(request, "Type de contenu invalide.")
+                return redirect('mythpedia:mythology_list')
+            
+            rating.content_type_field = ct
+            
+            # Vérifier si l'utilisateur a déjà noté cet objet
+            existing_rating = Rating.objects.filter(
+                user=request.user,
+                content_type=content_type.upper(),
+                object_id=object_id
+            ).first()
+            
+            if existing_rating:
+                # Mettre à jour la note existante
+                existing_rating.score = rating.score
+                existing_rating.save()
+                messages.success(request, "Votre note a été mise à jour avec succès.")
+            else:
+                # Créer une nouvelle note
+                rating.save()
+                messages.success(request, "Votre note a été ajoutée avec succès.")
+            
+            # Rediriger vers la page appropriée
+            if content_type == 'mythology':
+                mythology = Mythology.objects.get(pk=object_id)
+                return redirect('mythpedia:mythology_detail', mythology_slug=mythology.slug)
+            elif content_type == 'character':
+                character = Character.objects.get(pk=object_id)
+                return redirect('mythpedia:character_detail', mythology_slug=character.mythology.slug, character_slug=character.slug)
+            elif content_type == 'story':
+                story = MythStory.objects.get(pk=object_id)
+                return redirect('mythpedia:mythstory_detail', mythology_slug=story.mythology.slug, story_slug=story.slug)
+    else:
+        form = RatingForm()
+    
+    # En cas d'erreur ou de GET, rediriger vers la liste des mythologies
+    return redirect('mythpedia:mythology_list')

@@ -1,7 +1,9 @@
 # mythpedia/models.py
 from django.db import models
 from django.utils.text import slugify
-from django.contrib.auth.models import User 
+from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
 
 # 1. DÉFINIR Mythology EN PREMIER
 class Mythology(models.Model):
@@ -143,3 +145,109 @@ class Suggestion(models.Model):
         verbose_name = "Suggestion Utilisateur"
         verbose_name_plural = "Suggestions des Utilisateurs"
         ordering = ['-submitted_on']
+
+# 6. DÉFINIR MythStory APRÈS Character et Mythology
+class MythStory(models.Model):
+    mythology = models.ForeignKey(Mythology, on_delete=models.CASCADE, related_name='stories')
+    title = models.CharField(max_length=200, verbose_name="Titre de l'histoire")
+    slug = models.SlugField(max_length=210, unique=True, blank=True, help_text="Identifiant URL (auto-généré à partir du titre si laissé vide)")
+    summary = models.TextField(verbose_name="Résumé de l'histoire", blank=True, help_text="Court résumé de l'histoire")
+    full_text = models.TextField(verbose_name="Texte complet de l'histoire", blank=True, help_text="Texte complet de l'histoire")
+    characters = models.ManyToManyField(Character, related_name='featured_in_stories', blank=True, help_text="Personnages apparaissant dans cette histoire")
+    themes = models.CharField(max_length=300, blank=True, null=True, help_text="Thèmes de l'histoire (séparés par des virgules)")
+    image_url = models.URLField(max_length=300, blank=True, null=True, help_text="URL de l'image illustrative (ex: Imgur)")
+    
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.title)
+            original_slug = self.slug
+            counter = 1
+            queryset = MythStory.objects.filter(slug=self.slug)
+            if self.pk:
+                queryset = queryset.exclude(pk=self.pk)
+            while queryset.exists():
+                self.slug = f'{original_slug}-{counter}'
+                counter += 1
+                queryset = MythStory.objects.filter(slug=self.slug)
+                if self.pk:
+                    queryset = queryset.exclude(pk=self.pk)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.title} ({self.mythology.title})"
+
+    class Meta:
+        verbose_name = "Histoire/Mythe"
+        verbose_name_plural = "Histoires/Mythes"
+        ordering = ['mythology', 'title']
+
+# 7. DÉFINIR Comment APRÈS User, Mythology, Character et MythStory
+class Comment(models.Model):
+    CONTENT_TYPES = [
+        ('MYTHOLOGY', 'Mythologie'),
+        ('CHARACTER', 'Personnage'),
+        ('STORY', 'Histoire/Mythe'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='comments')
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPES)
+    object_id = models.PositiveIntegerField()
+    
+    # Utiliser GenericForeignKey pour lier à n'importe quel modèle
+    content_type_field = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name='comments_for_object'
+    )
+    content_object = GenericForeignKey('content_type_field', 'object_id')
+    
+    text = models.TextField(verbose_name="Commentaire")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_approved = models.BooleanField(default=True, verbose_name="Approuvé")
+    
+    class Meta:
+        verbose_name = "Commentaire"
+        verbose_name_plural = "Commentaires"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+
+# 8. DÉFINIR Rating APRÈS User, Mythology, Character et MythStory
+class Rating(models.Model):
+    CONTENT_TYPES = [
+        ('MYTHOLOGY', 'Mythologie'),
+        ('CHARACTER', 'Personnage'),
+        ('STORY', 'Histoire/Mythe'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='ratings')
+    content_type = models.CharField(max_length=20, choices=CONTENT_TYPES)
+    object_id = models.PositiveIntegerField()
+    
+    # Utiliser GenericForeignKey pour lier à n'importe quel modèle
+    content_type_field = models.ForeignKey(
+        ContentType,
+        on_delete=models.CASCADE,
+        related_name='ratings_for_object'
+    )
+    content_object = GenericForeignKey('content_type_field', 'object_id')
+    
+    score = models.PositiveSmallIntegerField(
+        choices=[(i, i) for i in range(1, 6)],  # Notation de 1 à 5
+        verbose_name="Note"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "Note"
+        verbose_name_plural = "Notes"
+        unique_together = ('user', 'content_type', 'object_id')  # Un utilisateur ne peut noter qu'une fois
+        indexes = [
+            models.Index(fields=['content_type', 'object_id']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.score}/5"

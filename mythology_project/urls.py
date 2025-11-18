@@ -12,11 +12,14 @@ urlpatterns = [
                                                 # ou les définir individuellement ici si vous préférez.
                                                 # Pour l'instant, on les laisse sous /mythpedia/
                                                 # SAUF pour login, register, logout qui seront aussi à la racine.
-
+    
     # Déplacer les URLs d'authentification à la racine aussi pour un accès plus direct
     path('register/', mythpedia_views.register_request, name='register'),
     path('login/', mythpedia_views.login_request, name='login'), # Répété mais name='login' est important pour LOGIN_URL
     path('logout/', mythpedia_views.logout_request, name='logout'),
+    
+    # URLs de l'API REST
+    path('api/', include('mythpedia.api_urls')),
 ]
 
 # Pour servir les fichiers media en développement
