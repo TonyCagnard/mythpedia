@@ -1,0 +1,17 @@
+# Core Django
+Django>=4.2.0,<5.0
+
+# Django REST Framework
+djangorestframework>=3.14.0
+
+# Django Filters for DRF
+django-filter>=23.2
+
+# Widget Tweaks for form customization
+django-widget-tweaks>=1.4.12
+
+# Python-dotenv for environment variables
+python-dotenv>=1.0.0
+
+# Pillow for image handling (if needed for character/deity images)
+Pillow>=10.0.0
