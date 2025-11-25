@@ -13,11 +13,14 @@ load_dotenv() # <<< APPELER CETTE FONCTION AU DÉBUT
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-8)-220u69!9+=o+p(bj07__5zlj+#wu5g0uger8po5c+)ys$5x'
+# Security settings
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-8)-220u69!9+=o+p(bj07__5zlj+#wu5g0uger8po5c+)ys$5x')
 
-DEBUG = True
+# Debug setting - False in production
+DEBUG = os.getenv('DEBUG', 'True').lower() in ['true', '1', 'yes']
 
-ALLOWED_HOSTS = []
+# Allowed hosts for production
+ALLOWED_HOSTS = ['*'] if DEBUG else os.getenv('ALLOWED_HOSTS', '').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -62,12 +65,47 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'mythology_project.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Database configuration
+# Check if we're in production (Railway) and use PostgreSQL, otherwise use SQLite
+if 'RAILWAY_ENVIRONMENT' in os.environ or 'DATABASE_URL' in os.environ:
+    # Production database (PostgreSQL on Railway)
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+        }
+    except ImportError:
+        # Fallback if dj_database_url is not installed
+        import urllib.parse
+        db_url = os.environ.get('DATABASE_URL', '')
+        if db_url:
+            parsed = urllib.parse.urlparse(db_url)
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.postgresql',
+                    'NAME': parsed.path[1:],  # Remove leading slash
+                    'USER': parsed.username,
+                    'PASSWORD': parsed.password,
+                    'HOST': parsed.hostname,
+                    'PORT': parsed.port or 5432,
+                }
+            }
+        else:
+            # If DATABASE_URL is not set, use SQLite as fallback
+            DATABASES = {
+                'default': {
+                    'ENGINE': 'django.db.backends.sqlite3',
+                    'NAME': BASE_DIR / 'db.sqlite3',
+                }
+            }
+else:
+    # Development database (SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},

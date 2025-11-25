@@ -15,3 +15,12 @@ python-dotenv>=1.0.0
 
 # Pillow for image handling (if needed for character/deity images)
 Pillow>=10.0.0
+
+# Gunicorn for production server
+gunicorn>=21.2.0
+
+# Psycopg2 for PostgreSQL database (Railway's preferred database)
+psycopg2-binary>=2.9.7
+
+# dj-database-url for parsing database URLs
+dj-database-url>=2.1.0
