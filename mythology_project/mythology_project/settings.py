@@ -4,20 +4,30 @@ Django settings for mythology_project project.
 
 from pathlib import Path
 import os
-from dotenv import load_dotenv # <<< AJOUTER CET IMPORT
+from dotenv import load_dotenv
+import dj_database_url
 
-# Charger les variables d'environnement depuis le fichier .env
-# Assurez-vous que ce fichier est à la racine de votre projet (même niveau que manage.py)
-# et qu'il n'est PAS versionné (ajoutez-le à .gitignore)
-load_dotenv() # <<< APPELER CETTE FONCTION AU DÉBUT
+# Charger les variables d'environnement (.env en local, Railway fournit des variables)
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = 'django-insecure-8)-220u69!9+=o+p(bj07__5zlj+#wu5g0uger8po5c+)ys$5x'
+# ------------------------------
+#           BASE
+# ------------------------------
 
-DEBUG = True
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
 
-ALLOWED_HOSTS = []
+DEBUG = os.getenv("DEBUG", "True") == "True"
+
+# En production, Railway fournit RAILWAY_PUBLIC_DOMAIN
+ALLOWED_HOSTS = [
+    "*"
+]
+
+# ------------------------------
+#           APPS
+# ------------------------------
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -30,8 +40,16 @@ INSTALLED_APPS = [
     'widget_tweaks',
 ]
 
+# ------------------------------
+#         MIDDLEWARE
+# ------------------------------
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+
+    # WhiteNoise pour servir les fichiers statiques en prod
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -40,48 +58,70 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# ------------------------------
+#         URLS / WSGI
+# ------------------------------
+
 ROOT_URLCONF = 'mythology_project.urls'
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
 WSGI_APPLICATION = 'mythology_project.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# ------------------------------
+#           DATABASE
+# ------------------------------
+
+# On vérifie si Railway fournit une DATABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    # MODE PRODUCTION (Railway)
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
     }
-}
+else:
+    # MODE LOCAL (SQLite)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+
+# ------------------------------
+#       PASSWORD RULES
+# ------------------------------
 
 AUTH_PASSWORD_VALIDATORS = [
-    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',},
-    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',},
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
+
+# ------------------------------
+#       I18N / TIMEZONE
+# ------------------------------
 
 LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Europe/Paris'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# ------------------------------
+#           STATIC & MEDIA
+# ------------------------------
+
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# WhiteNoise : compression + hash
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# ------------------------------
+#      AUTHENTIFICATION
+# ------------------------------
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -89,21 +129,17 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'mythpedia:mythology_list'
 LOGOUT_REDIRECT_URL = 'login'
 
-# --- CONFIGURATION EMAIL POUR GMAIL ---
+# ------------------------------
+#         EMAIL
+# ------------------------------
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 
-# Charger les identifiants depuis les variables d'environnement (fichier .env)
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER_PY') 
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER_PY')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD_PY')
-
-# Vérification (optionnelle mais utile pour le débogage)
-if not EMAIL_HOST_USER:
-    print("ATTENTION: La variable d'environnement EMAIL_HOST_USER_PY n'est pas définie dans le fichier .env !")
-if not EMAIL_HOST_PASSWORD:
-    print("ATTENTION: La variable d'environnement EMAIL_HOST_PASSWORD_PY n'est pas définie dans le fichier .env !")
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 ADMIN_EMAIL_FOR_SUGGESTIONS = EMAIL_HOST_USER
